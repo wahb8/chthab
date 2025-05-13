@@ -12,11 +12,11 @@ app.use('/images', express.static('public/images'));
 const server = http.createServer(app);
 
 // Allow CORS for requests from the frontend
-app.use(cors({ origin: 'http://localhost:3000' }));
+app.use(cors({ origin: 'https://chthab.com' }));
 
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:3000',
+    origin: 'https://chthab.com',
     methods: ['GET', 'POST'],
   },
 });
