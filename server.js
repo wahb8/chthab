@@ -2,26 +2,31 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
-const path = require('path');
 
 // ✅ Serve static images like /images/kuwait/bnaider.png
 app.use('/images', express.static('public/images'));
 
-const server = http.createServer(app);
+// ✅ Allow CORS for requests from local or production frontend
+const allowedOrigins = ['https://chthab.com', 'http://localhost:3000'];
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST'],
+}));
 
-// Allow CORS for requests from the frontend
-app.use(cors({ origin: 'https://chthab.com' }));
+const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: 'https://chthab.com',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
   },
 });
 
-const PORT = 3001;
+// ✅ Use dynamic port for Render, fallback to 3001 locally
+const PORT = process.env.PORT || 3001;
 
 const locationCategories = {
   Kuwait: [
@@ -49,7 +54,7 @@ const usedLocations = {};
 const roomHosts = {};
 
 io.on('connection', (socket) => {
-  console.log(`🟢 User connected: ${socket.id}`);
+  console.log(`🟢 User connected: ${socket.id} from ${socket.handshake.address}`);
 
   socket.on('joinRoom', ({ roomCode, username, isHost }) => {
     console.log(`➡️ joinRoom: ${username} joining ${roomCode} (Host: ${isHost})`);
@@ -57,12 +62,10 @@ io.on('connection', (socket) => {
     if (!rooms[roomCode]) {
       rooms[roomCode] = [];
     }
-    
+
     if (!roomHosts[roomCode]) {
       roomHosts[roomCode] = socket.id;
-    }
-    
-    else {
+    } else {
       if (!rooms[roomCode]) {
         console.log(`❌ Room ${roomCode} does not exist.`);
         socket.emit('errorMessage', 'Room does not exist.');
@@ -93,10 +96,8 @@ io.on('connection', (socket) => {
       players: rooms[roomCode],
       hostId: roomHosts[roomCode]
     });
-    
 
-    io.to(roomCode).emit('newHost', roomHosts[roomCode]); // ✅ Always tell room who the host is
-
+    io.to(roomCode).emit('newHost', roomHosts[roomCode]);
   });
 
   socket.on('ready', ({ roomCode, playerId }) => {
@@ -110,7 +111,6 @@ io.on('connection', (socket) => {
       players: rooms[roomCode],
       hostId: roomHosts[roomCode]
     });
-    
   });
 
   socket.on('startGame', ({ roomCode, category }) => {
@@ -151,13 +151,12 @@ io.on('connection', (socket) => {
     room.forEach((player, index) => {
       const isSpy = index === spyIndex;
       const role = isSpy ? 'Spy' : locationName;
-      const imageToSend = randomLocation.image;
 
       io.to(player.id).emit('gameStarted', {
         role,
         location: locationName,
-        image: imageToSend,
-        hostId: roomHosts[roomCode] // ✅ send current host ID
+        image,
+        hostId: roomHosts[roomCode]
       });
     });
 
@@ -180,7 +179,6 @@ io.on('connection', (socket) => {
       players: rooms[roomCode],
       hostId: roomHosts[roomCode]
     });
-    
   });
 
   socket.on('leaveRoom', ({ roomCode }) => {
@@ -212,7 +210,6 @@ io.on('connection', (socket) => {
         players: rooms[roomCode],
         hostId: roomHosts[roomCode]
       });
-      
     }
   });
 
@@ -242,7 +239,6 @@ io.on('connection', (socket) => {
         players: rooms[roomCode],
         hostId: roomHosts[roomCode]
       });
-      
     }
   });
 });
