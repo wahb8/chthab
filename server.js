@@ -30,22 +30,22 @@ const PORT = process.env.PORT || 3001;
 
 const locationCategories = {
   Kuwait: [
-    { name: "barber", image: "/public/images/kuwait/barber.png" },
-    { name: "bnaider", image: "/public/images/kuwait/bnaider.png" },
-    { name: "duwaniya", image: "/public/images/kuwait/duwaniya.png" },
-    { name: "gahwa", image: "/public/images/kuwait/gahwa.png" },
-    { name: "gas station", image: "/public/images/kuwait/gas station.png" },
-    { name: "gym", image: "/public/images/kuwait/gym.png" },
-    { name: "hospital", image: "/public/images/kuwait/hospital.png" },
-    { name: "jameia", image: "/public/images/kuwait/jameia.png" },
-    { name: "library", image: "/public/images/kuwait/library.png" },
-    { name: "police station", image: "/public/images/kuwait/police station.png" },
-    { name: "rehab", image: "/public/images/kuwait/rehab.png" },
-    { name: "school", image: "/public/images/kuwait/school.png" },
-    { name: "soccer field", image: "/public/images/kuwait/soccer field.png" },
-    { name: "subiya", image: "/public/images/kuwait/subiya.png" },
-    { name: "t7weelat", image: "/public/images/kuwait/t7weelat.png" },
-    { name: "theatre", image: "/public/images/kuwait/theatre.png" },
+    { name: "barber", image: "/images/kuwait/barber.png" },
+    { name: "bnaider", image: "/images/kuwait/bnaider.png" },
+    { name: "duwaniya", image: "/images/kuwait/duwaniya.png" },
+    { name: "gahwa", image: "/images/kuwait/gahwa.png" },
+    { name: "gas station", image: "/images/kuwait/gas station.png" },
+    { name: "gym", image: "/images/kuwait/gym.png" },
+    { name: "hospital", image: "/images/kuwait/hospital.png" },
+    { name: "jameia", image: "/images/kuwait/jameia.png" },
+    { name: "library", image: "/images/kuwait/library.png" },
+    { name: "police station", image: "/images/kuwait/police station.png" },
+    { name: "rehab", image: "/images/kuwait/rehab.png" },
+    { name: "school", image: "/images/kuwait/school.png" },
+    { name: "soccer field", image: "/images/kuwait/soccer field.png" },
+    { name: "subiya", image: "/images/kuwait/subiya.png" },
+    { name: "t7weelat", image: "/images/kuwait/t7weelat.png" },
+    { name: "theatre", image: "/images/kuwait/theatre.png" },
   ]
 };
 
