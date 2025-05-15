@@ -56,6 +56,19 @@ const roomHosts = {};
 io.on('connection', (socket) => {
   console.log(`🟢 User connected: ${socket.id} from ${socket.handshake.address}`);
 
+  let lastActivity = Date.now();
+
+  socket.onAny(() => {
+    lastActivity = Date.now();
+  });
+
+  const inactivityInterval = setInterval(() => {
+    if (Date.now() - lastActivity > 30000) {
+      console.log(`⚠️ Socket ${socket.id} timed out due to inactivity`);
+      socket.disconnect(true);
+    }
+  }, 5000);
+
   socket.on('joinRoom', ({ roomCode, username, isHost }) => {
     console.log(`➡️ joinRoom: ${username} joining ${roomCode} (Host: ${isHost})`);
 
@@ -214,6 +227,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    clearInterval(inactivityInterval);
     console.log(`🔴 User disconnected: ${socket.id}`);
     for (const roomCode in rooms) {
       const wasHost = roomHosts[roomCode] === socket.id;
