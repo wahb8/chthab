@@ -23,6 +23,8 @@ const io = new Server(server, {
     origin: allowedOrigins,
     methods: ['GET', 'POST'],
   },
+  pingTimeout: 120000, // ✅ allow 2 minutes before disconnection
+  pingInterval: 25000, // ✅ ping every 25 seconds
 });
 
 // ✅ Use dynamic port for Render, fallback to 3001 locally
@@ -63,7 +65,7 @@ io.on('connection', (socket) => {
   });
 
   const inactivityInterval = setInterval(() => {
-    if (Date.now() - lastActivity > 30000) {
+    if (Date.now() - lastActivity > 20 * 60 * 1000) { // 20 minutes
       console.log(`⚠️ Socket ${socket.id} timed out due to inactivity`);
       socket.disconnect(true);
     }
