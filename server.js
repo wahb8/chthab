@@ -6,10 +6,8 @@ const path = require('path');
 
 const app = express();
 
-// ✅ Serve static images like /images/kuwait/bnaider.png
 app.use('/images', express.static('public/images'));
 
-// ✅ Allow CORS for requests from local or production frontend
 const allowedOrigins = ['https://chthab.com', 'http://localhost:3000'];
 app.use(cors({
   origin: allowedOrigins,
@@ -73,10 +71,7 @@ io.on('connection', (socket) => {
   console.log(`🟢 User connected: ${socket.id} from ${socket.handshake.address}`);
 
   let lastActivity = Date.now();
-
-  socket.onAny(() => {
-    lastActivity = Date.now();
-  });
+  socket.onAny(() => lastActivity = Date.now());
 
   const inactivityInterval = setInterval(() => {
     if (Date.now() - lastActivity > 20 * 60 * 1000) {
@@ -85,7 +80,7 @@ io.on('connection', (socket) => {
     }
   }, 5000);
 
-  socket.on('joinRoom', ({ roomCode, username, isHost }) => {
+  socket.on('joinRoom', ({ roomCode, username }) => {
     if (!rooms[roomCode]) rooms[roomCode] = [];
     if (!roomHosts[roomCode]) roomHosts[roomCode] = socket.id;
 
@@ -96,18 +91,14 @@ io.on('connection', (socket) => {
 
     const playerExists = rooms[roomCode].some(p => p.id === socket.id);
     if (!playerExists) {
-      rooms[roomCode].push({
-        id: socket.id,
-        username,
-        ready: false,
-        returned: false,
-      });
+      rooms[roomCode].push({ id: socket.id, username, ready: false, returned: false });
     }
 
     socket.join(roomCode);
     io.to(roomCode).emit('roomData', {
       players: rooms[roomCode],
       hostId: roomHosts[roomCode],
+      category: roomCategories[roomCode] || 'Kuwait'
     });
     io.to(roomCode).emit('newHost', roomHosts[roomCode]);
   });
@@ -119,6 +110,7 @@ io.on('connection', (socket) => {
     io.to(roomCode).emit('roomData', {
       players: rooms[roomCode],
       hostId: roomHosts[roomCode],
+      category: roomCategories[roomCode] || 'Kuwait'
     });
   });
 
@@ -131,11 +123,8 @@ io.on('connection', (socket) => {
 
     room.forEach(p => p.returned = false);
 
-    if (category) {
-      roomCategories[roomCode] = category;
-    } else if (!roomCategories[roomCode]) {
-      roomCategories[roomCode] = 'Kuwait'; // default
-    }
+    if (category) roomCategories[roomCode] = category;
+    else if (!roomCategories[roomCode]) roomCategories[roomCode] = 'Kuwait';
 
     const selectedCategory = roomCategories[roomCode];
     const chosenCategory = locationCategories[selectedCategory];
@@ -191,6 +180,7 @@ io.on('connection', (socket) => {
     io.to(roomCode).emit('roomData', {
       players: rooms[roomCode],
       hostId: roomHosts[roomCode],
+      category: roomCategories[roomCode] || 'Kuwait'
     });
   });
 
@@ -202,14 +192,12 @@ io.on('connection', (socket) => {
     if (index !== -1) {
       const wasHost = roomHosts[roomCode] === socket.id;
       const [leavingPlayer] = room.splice(index, 1);
-      console.log(`🚪 ${leavingPlayer.username} left room ${roomCode}`);
 
       if (room.length === 0) {
         delete rooms[roomCode];
         delete usedLocations[roomCode];
         delete roomHosts[roomCode];
         delete roomCategories[roomCode];
-        console.log(`🗑️ Room ${roomCode} deleted`);
         return;
       }
 
@@ -222,6 +210,7 @@ io.on('connection', (socket) => {
       io.to(roomCode).emit('roomData', {
         players: rooms[roomCode],
         hostId: roomHosts[roomCode],
+        category: roomCategories[roomCode] || 'Kuwait'
       });
     }
   });
@@ -230,7 +219,6 @@ io.on('connection', (socket) => {
     clearInterval(inactivityInterval);
     for (const roomCode in rooms) {
       const wasHost = roomHosts[roomCode] === socket.id;
-
       rooms[roomCode] = rooms[roomCode].filter(p => p.id !== socket.id);
 
       if (rooms[roomCode].length === 0) {
@@ -238,7 +226,6 @@ io.on('connection', (socket) => {
         delete usedLocations[roomCode];
         delete roomHosts[roomCode];
         delete roomCategories[roomCode];
-        console.log(`🗑️ Room ${roomCode} deleted`);
         continue;
       }
 
@@ -251,6 +238,7 @@ io.on('connection', (socket) => {
       io.to(roomCode).emit('roomData', {
         players: rooms[roomCode],
         hostId: roomHosts[roomCode],
+        category: roomCategories[roomCode] || 'Kuwait'
       });
     }
   });
