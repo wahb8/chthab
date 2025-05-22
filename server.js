@@ -48,6 +48,20 @@ const locationCategories = {
     { name: "subiya", image: "/images/kuwait/subiya.png" },
     { name: "t7weelat", image: "/images/kuwait/t7weelat.png" },
     { name: "theatre", image: "/images/kuwait/theatre.png" },
+  ],
+  "Kuwait-Places": [
+    { name: "souq mubarakiya", image: "/images/kuwait-places/souq.png" },
+    { name: "marina mall", image: "/images/kuwait-places/marina.png" },
+    { name: "failaka island", image: "/images/kuwait-places/failaka.png" },
+    { name: "kuwait towers", image: "/images/kuwait-places/towers.png" },
+    { name: "360 mall", image: "/images/kuwait-places/360.png" }
+  ],
+  "Soccer-Players": [
+    { name: "ronaldo", image: "/images/soccer-players/ronaldo.png" },
+    { name: "messi", image: "/images/soccer-players/messi.png" },
+    { name: "neymar", image: "/images/soccer-players/neymar.png" },
+    { name: "mbappe", image: "/images/soccer-players/mbappe.png" },
+    { name: "modric", image: "/images/soccer-players/modric.png" }
   ]
 };
 
@@ -65,7 +79,7 @@ io.on('connection', (socket) => {
   });
 
   const inactivityInterval = setInterval(() => {
-    if (Date.now() - lastActivity > 20 * 60 * 1000) { // 20 minutes
+    if (Date.now() - lastActivity > 20 * 60 * 1000) {
       console.log(`⚠️ Socket ${socket.id} timed out due to inactivity`);
       socket.disconnect(true);
     }
