@@ -112,47 +112,4 @@ function GamePage() {
     }
   };
 
-  // Grid styling
-  const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: '16px', margin: '20px' };
-  const itemStyle = { textAlign: 'center' };
-  const imgStyle = { width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px' };
-
-  return (
-    <div className="game-container">
-      <h1>{isArabic ? '!اللعبة بدت' : 'Game Started!'}</h1>
-
-      {role === 'Spy' ? (
-        <p>{isArabic ? 'الدور:' : 'Role:'} {isArabic ? 'الجذاب' : 'Spy'}</p>
-      ) : (
-        <p>{isArabic ? 'المكان:' : 'Location:'} {gameLocation}</p>
-      )}
-
-      {role !== 'Spy' && image && (
-        <div className="image-wrapper">
-          <img src={`https://chthab.onrender.com${image}`} alt="location" className="location-image" />
-        </div>
-      )}
-
-      {/* Back to Lobby Button */}
-      <div className="button-wrapper">
-        <button className={`return-button ${voted ? 'voted' : ''}`} onClick={handleVote}>
-          {voted
-            ? (isArabic ? '... ناطرين الباجي' : 'Waiting for others...')
-            : (isArabic ? 'رجوع للغرفة' : 'Back to Lobby')}
-        </button>
-      </div>
-
-      {/* Always show location grid below everything */}
-      <div style={gridStyle}>
-        {locationCategories[selectedCategory].map(loc => (
-          <div key={loc.name} style={itemStyle}>
-            <img src={`https://chthab.onrender.com${loc.image}`} alt={loc.name} style={imgStyle} />
-            <p>{loc.name}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 }
-
-export default GamePage;
