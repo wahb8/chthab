@@ -161,6 +161,7 @@ io.on('connection', (socket) => {
         role,
         location: locationName,
         image,
+        category: selectedCategory,
         hostId: roomHosts[roomCode],
       });
     });
