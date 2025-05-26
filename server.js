@@ -1,10 +1,32 @@
-// GamePage.js
-import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import socket from './socket';
-import './GamePage.css';
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const path = require('path');
 
-// All possible location categories (should match server)
+const app = express();
+
+app.use('/images', express.static('public/images'));
+
+const allowedOrigins = ['https://chthab.com', 'http://localhost:3000'];
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST'],
+}));
+
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+  },
+  pingTimeout: 120000,
+  pingInterval: 25000,
+});
+
+const PORT = process.env.PORT || 3001;
+
 const locationCategories = {
   Kuwait: [
     { name: "barber", image: "/images/kuwait/barber.png" },
@@ -22,7 +44,7 @@ const locationCategories = {
     { name: "soccer field", image: "/images/kuwait/soccer field.png" },
     { name: "subiya", image: "/images/kuwait/subiya.png" },
     { name: "t7weelat", image: "/images/kuwait/t7weelat.png" },
-    { name: "theatre", image: "/images/kuwait/theatre.png" }
+    { name: "theatre", image: "/images/kuwait/theatre.png" },
   ],
   "Kuwait-Places": [
     { name: "souq mubarakiya", image: "/images/kuwait-places/souq.png" },
@@ -40,76 +62,160 @@ const locationCategories = {
   ]
 };
 
-function GamePage() {
-  const { state } = useLocation();
-  const navigate = useNavigate();
-  const {
-    role,
-    location: gameLocation,
-    image,
-    roomCode,
-    username = 'anonymous',
-    category: initCategory
-  } = state || {};
+const rooms = {};
+const usedLocations = {};
+const roomHosts = {};
+const roomCategories = {};
 
-  const isArabic = true;
-  const [voted, setVoted] = useState(false);
-  const [pendingVote, setPendingVote] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(initCategory || 'Kuwait');
+io.on('connection', (socket) => {
+  console.log(`🟢 User connected: ${socket.id} from ${socket.handshake.address}`);
 
-  // Update category if server sends one later
-  useEffect(() => {
-    const handleRoomData = ({ players, category }) => {
-      if (category && category !== selectedCategory) {
-        setSelectedCategory(category);
-      }
-      if (players.length === 1) {
-        navigate(`/lobby?roomCode=${roomCode}&username=${username}`);
+  let lastActivity = Date.now();
+  socket.onAny(() => lastActivity = Date.now());
+  const inactivityInterval = setInterval(() => {
+    if (Date.now() - lastActivity > 20 * 60 * 1000) {
+      console.log(`⚠️ Socket ${socket.id} timed out due to inactivity`);
+      socket.disconnect(true);
+    }
+  }, 5000);
+
+  socket.on('joinRoom', ({ roomCode, username }) => {
+    if (!rooms[roomCode]) rooms[roomCode] = [];
+    if (!roomHosts[roomCode]) roomHosts[roomCode] = socket.id;
+    if (rooms[roomCode].length >= 8) {
+      socket.emit('errorMessage', 'Room is full.');
+      return;
+    }
+    const playerExists = rooms[roomCode].some(p => p.id === socket.id);
+    if (!playerExists) rooms[roomCode].push({ id: socket.id, username, ready: false, returned: false });
+    socket.join(roomCode);
+    io.to(roomCode).emit('roomData', {
+      players: rooms[roomCode],
+      hostId: roomHosts[roomCode],
+      category: roomCategories[roomCode] || 'Kuwait'
+    });
+    io.to(roomCode).emit('newHost', roomHosts[roomCode]);
+  });
+
+  socket.on('ready', ({ roomCode, playerId }) => {
+    const player = rooms[roomCode]?.find(p => p.id === playerId);
+    if (player) player.ready = true;
+    io.to(roomCode).emit('roomData', {
+      players: rooms[roomCode],
+      hostId: roomHosts[roomCode],
+      category: roomCategories[roomCode] || 'Kuwait'
+    });
+  });
+
+  socket.on('startGame', ({ roomCode, category }) => {
+    const room = rooms[roomCode];
+    if (!room || room.length < 2) {
+      socket.emit('errorMessage', 'At least 2 players are required to start the game.');
+      return;
+    }
+    room.forEach(p => p.returned = false);
+    if (category) roomCategories[roomCode] = category;
+    else if (!roomCategories[roomCode]) roomCategories[roomCode] = 'Kuwait';
+    const selectedCategory = roomCategories[roomCode];
+    const chosenCategory = locationCategories[selectedCategory];
+    if (!chosenCategory || !Array.isArray(chosenCategory) || chosenCategory.length === 0) {
+      console.error(`❌ Invalid or empty category: ${selectedCategory}`);
+      return;
+    }
+    if (!usedLocations[roomCode]) usedLocations[roomCode] = [];
+    let unusedLocations = chosenCategory.filter(loc =>
+      !usedLocations[roomCode].some(used => used.name === loc.name)
+    );
+    if (unusedLocations.length === 0) {
+      usedLocations[roomCode] = [];
+      unusedLocations = [...chosenCategory];
+    }
+    const spyIndex = Math.floor(Math.random() * room.length);
+    const randomLocation = unusedLocations[Math.floor(Math.random() * unusedLocations.length)];
+    usedLocations[roomCode].push(randomLocation);
+    const locationName = randomLocation.name;
+    const image = randomLocation.image;
+    room.forEach((player, index) => {
+      const isSpy = index === spyIndex;
+      const role = isSpy ? 'Spy' : locationName;
+      io.to(player.id).emit('gameStarted', {
+        role,
+        location: locationName,
+        image,
+        category: selectedCategory,
+        hostId: roomHosts[roomCode],
+      });
+    });
+    console.log(`🎮 Game started in room ${roomCode}`);
+    console.log(`🕵️ Spy: ${room[spyIndex].username}`);
+    console.log(`📍 Location: ${locationName} (Category: ${selectedCategory})`);
+  });
+
+  socket.on('returnToLobbyVote', (roomCode) => {
+    const room = rooms[roomCode];
+    if (!room) return;
+    const player = room.find(p => p.id === socket.id);
+    if (player) player.returned = true;
+    io.to(roomCode).emit('roomData', {
+      players: rooms[roomCode],
+      hostId: roomHosts[roomCode],
+      category: roomCategories[roomCode] || 'Kuwait'
+    });
+  });
+
+  socket.on('leaveRoom', ({ roomCode }) => {
+    const room = rooms[roomCode];
+    if (!room) return;
+    const index = room.findIndex(p => p.id === socket.id);
+    if (index !== -1) {
+      const wasHost = roomHosts[roomCode] === socket.id;
+      room.splice(index, 1);
+      if (room.length === 0) {
+        delete rooms[roomCode];
+        delete usedLocations[roomCode];
+        delete roomHosts[roomCode];
+        delete roomCategories[roomCode];
         return;
       }
-      const votes = players.filter(p => p.returned).length;
-      if (votes === players.length) {
-        navigate(`/lobby?roomCode=${roomCode}&username=${username}`);
+      if (wasHost) {
+        const newHost = room[0];
+        roomHosts[roomCode] = newHost.id;
+        io.to(roomCode).emit('newHost', newHost.id);
       }
-    };
-    socket.on('roomData', handleRoomData);
-    return () => socket.off('roomData', handleRoomData);
-  }, [navigate, roomCode, username, selectedCategory]);
-
-  // Buffer vote flush on reconnect
-  useEffect(() => {
-    const flush = () => {
-      if (pendingVote && socket.connected) {
-        socket.emit('returnToLobbyVote', roomCode);
-        setPendingVote(false);
-        setVoted(true);
-      }
-    };
-    socket.on('connect', flush);
-    return () => socket.off('connect', flush);
-  }, [pendingVote, roomCode]);
-
-  // Reconnect logic
-  useEffect(() => {
-    const onFocus = () => { if (!socket.connected) socket.connect(); };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, []);
-  useEffect(() => {
-    const onDisconnect = () => socket.connect();
-    socket.on('disconnect', onDisconnect);
-    return () => socket.off('disconnect', onDisconnect);
-  }, []);
-
-  const handleVote = () => {
-    if (voted) return;
-    if (!socket.connected) {
-      setPendingVote(true);
-      socket.connect();
-    } else {
-      socket.emit('returnToLobbyVote', roomCode);
-      setVoted(true);
+      io.to(roomCode).emit('roomData', {
+        players: rooms[roomCode],
+        hostId: roomHosts[roomCode],
+        category: roomCategories[roomCode] || 'Kuwait'
+      });
     }
-  };
+  });
 
-}
+  socket.on('disconnect', () => {
+    clearInterval(inactivityInterval);
+    for (const code in rooms) {
+      const wasHost = roomHosts[code] === socket.id;
+      rooms[code] = rooms[code].filter(p => p.id !== socket.id);
+      if (rooms[code].length === 0) {
+        delete rooms[code];
+        delete usedLocations[code];
+        delete roomHosts[code];
+        delete roomCategories[code];
+        continue;
+      }
+      if (wasHost) {
+        const newHost = rooms[code][0];
+        roomHosts[code] = newHost.id;
+        io.to(code).emit('newHost', newHost.id);
+      }
+      io.to(code).emit('roomData', {
+        players: rooms[code],
+        hostId: roomHosts[code],
+        category: roomCategories[code] || 'Kuwait'
+      });
+    }
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`🚀 Server is running on port ${PORT}`);
+});
