@@ -6,7 +6,8 @@ const path = require('path');
 
 const app = express();
 
-app.use('/images', express.static('public/images'));
+// ✅ Serve static files correctly (fix for images not loading)
+app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
 
 const allowedOrigins = ['https://chthab.com', 'http://localhost:3000'];
 app.use(cors({
