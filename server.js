@@ -54,11 +54,27 @@ const locationCategories = {
     { name: "360 mall", image: "/images/kuwait-places/360.png" }
   ],
   "Soccer-Players": [
+    { name: "de jong", image: "/images/soccer-players/de jong.png" },
+    { name: "higuain", image: "/images/soccer-players/higuain.png" },
+    { name: "rooney", image: "/images/soccer-players/rooney.png" },
+    { name: "lewandowski", image: "/images/soccer-players/lewandowski.png" },
+    { name: "ronaldinho", image: "/images/soccer-players/ronaldinho.png" },
+    { name: "son", image: "/images/soccer-players/son.png" },
+    { name: "aguero", image: "/images/soccer-players/aguero.png" },
+    { name: "antony", image: "/images/soccer-players/antony.png" },
+    { name: "r9", image: "/images/soccer-players/r9.png" },
+    { name: "dybala", image: "/images/soccer-players/dybala.png" },
+    { name: "mbappe", image: "/images/soccer-players/mbappe.png" },
+    { name: "palmer", image: "/images/soccer-players/palmer.png" },
+    { name: "yamal", image: "/images/soccer-players/yamal.png" },
+    { name: "maradona", image: "/images/soccer-players/maradona.png" },
+    { name: "pele", image: "/images/soccer-players/pele.png" },
+    { name: "neymar", image: "/images/soccer-players/neymar.png" },
+    { name: "modric", image: "/images/soccer-players/modric.png" },
     { name: "ronaldo", image: "/images/soccer-players/ronaldo.png" },
     { name: "messi", image: "/images/soccer-players/messi.png" },
-    { name: "neymar", image: "/images/soccer-players/neymar.png" },
-    { name: "mbappe", image: "/images/soccer-players/mbappe.png" },
-    { name: "modric", image: "/images/soccer-players/modric.png" }
+    { name: "salem", image: "/images/soccer-players/salem.png" }
+
   ]
 };
 
