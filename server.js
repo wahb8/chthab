@@ -21,12 +21,13 @@ const io = new Server(server, {
     origin: allowedOrigins,
     methods: ['GET', 'POST'],
   },
-  pingTimeout: 120000,
+  pingTimeout: 60000,
   pingInterval: 25000,
 });
 
 const PORT = process.env.PORT || 3001;
 
+// Game categories and locations
 const locationCategories = {
   Kuwait: [
     { name: "barber", image: "/images/kuwait/barber.png" },
@@ -74,172 +75,359 @@ const locationCategories = {
     { name: "ronaldo", image: "/images/soccer-players/ronaldo.png" },
     { name: "messi", image: "/images/soccer-players/messi.png" },
     { name: "salem", image: "/images/soccer-players/salem.png" }
-
   ]
 };
 
+// Constants
+const ROOM_CODE_REGEX = /^[A-Z0-9]{6}$/;
+const MAX_PLAYERS = 8;
+const RECONNECT_GRACE_PERIOD = 5000;
+const ROOM_CLEANUP_INTERVAL = 300000; // 5 minutes
+
+// Room state management
 const rooms = {};
 const usedLocations = {};
 const roomHosts = {};
 const roomCategories = {};
+const disconnectedPlayers = new Map(); // Track recently disconnected players
+
+// Utility functions
+function validateRoomCode(roomCode) {
+  return typeof roomCode === 'string' && ROOM_CODE_REGEX.test(roomCode);
+}
+
+function validateUsername(username) {
+  return typeof username === 'string' && username.length >= 1 && username.length <= 20;
+}
+
+function cleanupRoom(roomCode) {
+  delete rooms[roomCode];
+  delete usedLocations[roomCode];
+  delete roomHosts[roomCode];
+  delete roomCategories[roomCode];
+}
+
+// Periodic cleanup of empty rooms
+setInterval(() => {
+  for (const roomCode in rooms) {
+    if (rooms[roomCode].length === 0) {
+      console.log(`🧹 Cleaning up empty room: ${roomCode}`);
+      cleanupRoom(roomCode);
+    }
+  }
+}, ROOM_CLEANUP_INTERVAL);
 
 io.on('connection', (socket) => {
   console.log(`🟢 User connected: ${socket.id} from ${socket.handshake.address}`);
 
   let lastActivity = Date.now();
+  let currentRoom = null;
+
   socket.onAny(() => lastActivity = Date.now());
-  const inactivityInterval = setInterval(() => {
-    if (Date.now() - lastActivity > 20 * 60 * 1000) {
-      console.log(`⚠️ Socket ${socket.id} timed out due to inactivity`);
-      socket.disconnect(true);
-    }
-  }, 5000);
 
+  // Handle room joining
   socket.on('joinRoom', ({ roomCode, username }) => {
-    if (!rooms[roomCode]) rooms[roomCode] = [];
-    if (!roomHosts[roomCode]) roomHosts[roomCode] = socket.id;
-    if (rooms[roomCode].length >= 8) {
-      socket.emit('errorMessage', 'Room is full.');
-      return;
-    }
-    const playerExists = rooms[roomCode].some(p => p.id === socket.id);
-    if (!playerExists) rooms[roomCode].push({ id: socket.id, username, ready: false, returned: false });
-    socket.join(roomCode);
-    io.to(roomCode).emit('roomData', {
-      players: rooms[roomCode],
-      hostId: roomHosts[roomCode],
-      category: roomCategories[roomCode] || 'Kuwait'
-    });
-    io.to(roomCode).emit('newHost', roomHosts[roomCode]);
-  });
+    try {
+      // Validate input
+      if (!validateRoomCode(roomCode)) {
+        socket.emit('errorMessage', 'Invalid room code format');
+        return;
+      }
+      if (!validateUsername(username)) {
+        socket.emit('errorMessage', 'Invalid username');
+        return;
+      }
 
-  socket.on('ready', ({ roomCode, playerId }) => {
-    const player = rooms[roomCode]?.find(p => p.id === playerId);
-    if (player) player.ready = true;
-    io.to(roomCode).emit('roomData', {
-      players: rooms[roomCode],
-      hostId: roomHosts[roomCode],
-      category: roomCategories[roomCode] || 'Kuwait'
-    });
-  });
+      // Check if player was recently disconnected
+      const disconnectedData = disconnectedPlayers.get(socket.id);
+      if (disconnectedData && disconnectedData.roomCode === roomCode) {
+        disconnectedPlayers.delete(socket.id);
+      }
 
-  socket.on('updateCategory', ({ roomCode, category }) => {
-    if (rooms[roomCode]) {
-      roomCategories[roomCode] = category;
+      // Initialize room if it doesn't exist
+      if (!rooms[roomCode]) {
+        rooms[roomCode] = [];
+        roomHosts[roomCode] = socket.id;
+        roomCategories[roomCode] = 'Kuwait';
+      }
+
+      // Check room capacity
+      if (rooms[roomCode].length >= MAX_PLAYERS) {
+        socket.emit('errorMessage', 'Room is full');
+        return;
+      }
+
+      // Leave current room if in one
+      if (currentRoom) {
+        socket.leave(currentRoom);
+        rooms[currentRoom] = rooms[currentRoom].filter(p => p.id !== socket.id);
+        if (rooms[currentRoom].length === 0) {
+          cleanupRoom(currentRoom);
+        }
+      }
+
+      // Join new room
+      currentRoom = roomCode;
+      socket.join(roomCode);
+
+      // Add player to room if not already present
+      const playerExists = rooms[roomCode].some(p => p.id === socket.id);
+      if (!playerExists) {
+        rooms[roomCode].push({
+          id: socket.id,
+          username,
+          ready: false,
+          returned: false,
+          joinedAt: Date.now()
+        });
+      }
+
+      // Emit room data
       io.to(roomCode).emit('roomData', {
         players: rooms[roomCode],
         hostId: roomHosts[roomCode],
-        category: category,
+        category: roomCategories[roomCode]
       });
+
+      console.log(`👤 User ${username} joined room ${roomCode}`);
+    } catch (error) {
+      console.error('Error in joinRoom:', error);
+      socket.emit('errorMessage', 'Failed to join room');
+    }
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    try {
+      if (currentRoom) {
+        // Store player data temporarily
+        const playerData = rooms[currentRoom].find(p => p.id === socket.id);
+        if (playerData) {
+          disconnectedPlayers.set(socket.id, {
+            ...playerData,
+            roomCode: currentRoom,
+            disconnectedAt: Date.now()
+          });
+
+          // Remove player after grace period if not reconnected
+          setTimeout(() => {
+            if (disconnectedPlayers.has(socket.id)) {
+              disconnectedPlayers.delete(socket.id);
+              
+              // Only clean up if the room still exists
+              if (rooms[currentRoom]) {
+                const wasHost = roomHosts[currentRoom] === socket.id;
+                rooms[currentRoom] = rooms[currentRoom].filter(p => p.id !== socket.id);
+
+                if (rooms[currentRoom].length === 0) {
+                  cleanupRoom(currentRoom);
+                } else if (wasHost) {
+                  roomHosts[currentRoom] = rooms[currentRoom][0].id;
+                  io.to(currentRoom).emit('newHost', roomHosts[currentRoom]);
+                }
+
+                io.to(currentRoom).emit('roomData', {
+                  players: rooms[currentRoom],
+                  hostId: roomHosts[currentRoom],
+                  category: roomCategories[currentRoom]
+                });
+              }
+            }
+          }, RECONNECT_GRACE_PERIOD);
+        }
+      }
+    } catch (error) {
+      console.error('Error in disconnect handler:', error);
+    }
+  });
+
+  // Handle ready state
+  socket.on('ready', ({ roomCode, playerId }) => {
+    try {
+      if (!rooms[roomCode]) return;
+      
+      const player = rooms[roomCode].find(p => p.id === playerId);
+      if (player) {
+        player.ready = true;
+        io.to(roomCode).emit('roomData', {
+          players: rooms[roomCode],
+          hostId: roomHosts[roomCode],
+          category: roomCategories[roomCode]
+        });
+      }
+    } catch (error) {
+      console.error('Error in ready handler:', error);
+    }
+  });
+
+  // Handle room state sync requests
+  socket.on('syncRoom', ({ roomCode }) => {
+    try {
+      if (rooms[roomCode]) {
+        socket.emit('roomData', {
+          players: rooms[roomCode],
+          hostId: roomHosts[roomCode],
+          category: roomCategories[roomCode]
+        });
+      }
+    } catch (error) {
+      console.error('Error in syncRoom handler:', error);
+    }
+  });
+
+  // Add these handlers inside the io.on('connection', (socket) => { ... }) block
+  socket.on('updateCategory', ({ roomCode, category }) => {
+    try {
+      if (rooms[roomCode]) {
+        roomCategories[roomCode] = category;
+        io.to(roomCode).emit('roomData', {
+          players: rooms[roomCode],
+          hostId: roomHosts[roomCode],
+          category: category,
+        });
+      }
+    } catch (error) {
+      console.error('Error in updateCategory handler:', error);
     }
   });
 
   socket.on('startGame', ({ roomCode, category }) => {
-    const room = rooms[roomCode];
-    if (!room || room.length < 2) {
-      socket.emit('errorMessage', 'At least 2 players are required to start the game.');
-      return;
-    }
-    room.forEach(p => p.returned = false);
-    if (category) roomCategories[roomCode] = category;
-    else if (!roomCategories[roomCode]) roomCategories[roomCode] = 'Kuwait';
-    const selectedCategory = roomCategories[roomCode];
-    const chosenCategory = locationCategories[selectedCategory];
-    if (!chosenCategory || !Array.isArray(chosenCategory) || chosenCategory.length === 0) {
-      console.error(`❌ Invalid or empty category: ${selectedCategory}`);
-      return;
-    }
-    if (!usedLocations[roomCode]) usedLocations[roomCode] = [];
-    let unusedLocations = chosenCategory.filter(loc =>
-      !usedLocations[roomCode].some(used => used.name === loc.name)
-    );
-    if (unusedLocations.length === 0) {
-      usedLocations[roomCode] = [];
-      unusedLocations = [...chosenCategory];
-    }
-    const spyIndex = Math.floor(Math.random() * room.length);
-    const randomLocation = unusedLocations[Math.floor(Math.random() * unusedLocations.length)];
-    usedLocations[roomCode].push(randomLocation);
-    const locationName = randomLocation.name;
-    const image = randomLocation.image;
-    room.forEach((player, index) => {
-      const isSpy = index === spyIndex;
-      const role = isSpy ? 'Spy' : locationName;
-      io.to(player.id).emit('gameStarted', {
-        role,
-        location: locationName,
-        image,
-        category: selectedCategory,
-        hostId: roomHosts[roomCode],
+    try {
+      const room = rooms[roomCode];
+      if (!room || room.length < 2) {
+        socket.emit('errorMessage', 'At least 2 players are required to start the game.');
+        return;
+      }
+
+      room.forEach(p => p.returned = false);
+      
+      if (category) {
+        roomCategories[roomCode] = category;
+      } else if (!roomCategories[roomCode]) {
+        roomCategories[roomCode] = 'Kuwait';
+      }
+
+      const selectedCategory = roomCategories[roomCode];
+      const chosenCategory = locationCategories[selectedCategory];
+
+      if (!chosenCategory || !Array.isArray(chosenCategory) || chosenCategory.length === 0) {
+        console.error(`❌ Invalid or empty category: ${selectedCategory}`);
+        socket.emit('errorMessage', 'Invalid game category');
+        return;
+      }
+
+      if (!usedLocations[roomCode]) {
+        usedLocations[roomCode] = [];
+      }
+
+      let unusedLocations = chosenCategory.filter(loc =>
+        !usedLocations[roomCode].some(used => used.name === loc.name)
+      );
+
+      if (unusedLocations.length === 0) {
+        usedLocations[roomCode] = [];
+        unusedLocations = [...chosenCategory];
+      }
+
+      const spyIndex = Math.floor(Math.random() * room.length);
+      const randomLocation = unusedLocations[Math.floor(Math.random() * unusedLocations.length)];
+      usedLocations[roomCode].push(randomLocation);
+
+      const locationName = randomLocation.name;
+      const image = randomLocation.image;
+
+      room.forEach((player, index) => {
+        const isSpy = index === spyIndex;
+        const role = isSpy ? 'Spy' : locationName;
+        io.to(player.id).emit('gameStarted', {
+          role,
+          location: locationName,
+          image,
+          category: selectedCategory,
+          hostId: roomHosts[roomCode],
+        });
       });
-    });
-    console.log(`🎮 Game started in room ${roomCode}`);
-    console.log(`🕵️ Spy: ${room[spyIndex].username}`);
-    console.log(`📍 Location: ${locationName} (Category: ${selectedCategory})`);
+
+      console.log(`🎮 Game started in room ${roomCode}`);
+      console.log(`🕵️ Spy: ${room[spyIndex].username}`);
+      console.log(`📍 Location: ${locationName} (Category: ${selectedCategory})`);
+    } catch (error) {
+      console.error('Error in startGame handler:', error);
+      socket.emit('errorMessage', 'Failed to start game');
+    }
   });
 
   socket.on('returnToLobbyVote', (roomCode) => {
-    const room = rooms[roomCode];
-    if (!room) return;
-    const player = room.find(p => p.id === socket.id);
-    if (player) player.returned = true;
-    io.to(roomCode).emit('roomData', {
-      players: rooms[roomCode],
-      hostId: roomHosts[roomCode],
-      category: roomCategories[roomCode] || 'Kuwait'
-    });
-  });
-
-  socket.on('leaveRoom', ({ roomCode }) => {
-    const room = rooms[roomCode];
-    if (!room) return;
-    const index = room.findIndex(p => p.id === socket.id);
-    if (index !== -1) {
-      const wasHost = roomHosts[roomCode] === socket.id;
-      room.splice(index, 1);
-      if (room.length === 0) {
-        delete rooms[roomCode];
-        delete usedLocations[roomCode];
-        delete roomHosts[roomCode];
-        delete roomCategories[roomCode];
-        return;
+    try {
+      const room = rooms[roomCode];
+      if (!room) return;
+      
+      const player = room.find(p => p.id === socket.id);
+      if (player) {
+        player.returned = true;
+        io.to(roomCode).emit('roomData', {
+          players: rooms[roomCode],
+          hostId: roomHosts[roomCode],
+          category: roomCategories[roomCode]
+        });
       }
-      if (wasHost) {
-        const newHost = room[0];
-        roomHosts[roomCode] = newHost.id;
-        io.to(roomCode).emit('newHost', newHost.id);
-      }
-      io.to(roomCode).emit('roomData', {
-        players: rooms[roomCode],
-        hostId: roomHosts[roomCode],
-        category: roomCategories[roomCode] || 'Kuwait'
-      });
+    } catch (error) {
+      console.error('Error in returnToLobbyVote handler:', error);
     }
   });
+
+  // Add leaveRoom handler
+  socket.on('leaveRoom', ({ roomCode }) => {
+    try {
+      const room = rooms[roomCode];
+      if (!room) return;
+
+      socket.leave(roomCode);
+      const index = room.findIndex(p => p.id === socket.id);
+      
+      if (index !== -1) {
+        const wasHost = roomHosts[roomCode] === socket.id;
+        room.splice(index, 1);
+        
+        if (room.length === 0) {
+          cleanupRoom(roomCode);
+          return;
+        }
+        
+        if (wasHost) {
+          roomHosts[roomCode] = room[0].id;
+          io.to(roomCode).emit('newHost', roomHosts[roomCode]);
+        }
+        
+        io.to(roomCode).emit('roomData', {
+          players: room,
+          hostId: roomHosts[roomCode],
+          category: roomCategories[roomCode]
+        });
+      }
+
+      if (currentRoom === roomCode) {
+        currentRoom = null;
+      }
+    } catch (error) {
+      console.error('Error in leaveRoom handler:', error);
+    }
+  });
+
+  // Inactivity check
+  const inactivityInterval = setInterval(() => {
+    const inactiveTime = Date.now() - lastActivity;
+    if (inactiveTime > 15 * 60 * 1000) { // 15 minutes
+      socket.emit('inactivityWarning', 'You have been inactive for 15 minutes');
+    }
+    if (inactiveTime > 20 * 60 * 1000) { // 20 minutes
+      console.log(`⚠️ Socket ${socket.id} timed out due to inactivity`);
+      socket.disconnect(true);
+    }
+  }, 60000); // Check every minute
 
   socket.on('disconnect', () => {
     clearInterval(inactivityInterval);
-    for (const code in rooms) {
-      const wasHost = roomHosts[code] === socket.id;
-      rooms[code] = rooms[code].filter(p => p.id !== socket.id);
-      if (rooms[code].length === 0) {
-        delete rooms[code];
-        delete usedLocations[code];
-        delete roomHosts[code];
-        delete roomCategories[code];
-        continue;
-      }
-      if (wasHost) {
-        const newHost = rooms[code][0];
-        roomHosts[code] = newHost.id;
-        io.to(code).emit('newHost', newHost.id);
-      }
-      io.to(code).emit('roomData', {
-        players: rooms[code],
-        hostId: roomHosts[code],
-        category: roomCategories[code] || 'Kuwait'
-      });
-    }
   });
 });
 
