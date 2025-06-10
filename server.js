@@ -75,7 +75,7 @@ const locationCategories = {
     { name: "messi", image: "/images/soccer-players/messi.png" },
     { name: "neymar", image: "/images/soccer-players/neymar.png" },
     { name: "mbappe", image: "/images/soccer-players/mbappe.png" },
-    { name: "modric", image: "/images/soccer-players/modric.png" }
+    { name: "modric", image: "/images/soccer-players/modric.png" },
     { name: "salem", image: "/images/soccer-players/salem.png" }
 
   ]
