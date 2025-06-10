@@ -142,9 +142,9 @@ io.on('connection', (socket) => {
   socket.onAny(() => lastActivity = Date.now());
 
   // Handle room joining
-  socket.on('joinRoom', ({ roomCode, username }) => {
+  socket.on('joinRoom', ({ roomCode, username, isHost }) => {
     try {
-      console.log(`Attempting to join room: ${roomCode} with username: ${username}`);
+      console.log(`Attempting to join room: ${roomCode} with username: ${username}, isHost: ${isHost}`);
       
       // Validate input
       if (!roomCode || !username) {
@@ -176,7 +176,7 @@ io.on('connection', (socket) => {
       if (!rooms[roomCode]) {
         console.log(`Creating new room: ${roomCode}`);
         rooms[roomCode] = [];
-        roomHosts[roomCode] = socket.id;
+        roomHosts[roomCode] = isHost ? socket.id : null;
         roomCategories[roomCode] = 'Kuwait';
       }
 
@@ -211,6 +211,11 @@ io.on('connection', (socket) => {
           returned: false,
           joinedAt: Date.now()
         });
+
+        // If this is the first player and no host is set, make them the host
+        if (rooms[roomCode].length === 1 && !roomHosts[roomCode]) {
+          roomHosts[roomCode] = socket.id;
+        }
       }
 
       console.log(`Successfully joined room ${roomCode}. Current players: ${rooms[roomCode].length}`);
