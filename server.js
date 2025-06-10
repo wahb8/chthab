@@ -75,6 +75,7 @@ const locationCategories = {
     { name: "messi", image: "/images/soccer-players/messi.png" },
     { name: "neymar", image: "/images/soccer-players/neymar.png" },
     { name: "mbappe", image: "/images/soccer-players/mbappe.png" },
+    { name: "modric", image: "/images/soccer-players/modric.png" }
     { name: "modric", image: "/images/soccer-players/modric.png" },
     { name: "salem", image: "/images/soccer-players/salem.png" }
 
@@ -98,55 +99,22 @@ io.on('connection', (socket) => {
     }
   }, 5000);
 
-  socket.on('reconnect_attempt', () => {
-    console.log(`🔄 Reconnection attempt from ${socket.id}`);
-  });
-
-  socket.on('joinRoom', async ({ roomCode, username }, callback) => {
-    try {
-      if (!roomCode || !username) {
-        callback?.({ success: false, error: 'Invalid room code or username' });
-        return;
-      }
-
-      if (!rooms[roomCode]) {
-        rooms[roomCode] = [];
-        roomHosts[roomCode] = socket.id;
-      }
-
-      if (rooms[roomCode].length >= 8) {
-        callback?.({ success: false, error: 'Room is full' });
-        return;
-      }
-
-      rooms[roomCode] = rooms[roomCode].filter(p => p.id !== socket.id);
-
-      const player = { id: socket.id, username, ready: false, returned: false };
-      rooms[roomCode].push(player);
-
-      await socket.join(roomCode);
-
-      const roomData = {
-        players: rooms[roomCode],
-        hostId: roomHosts[roomCode],
-        category: roomCategories[roomCode] || 'Kuwait'
-      };
-
-      io.to(roomCode).emit('roomData', roomData);
-
-      callback?.({ 
-        success: true, 
-        ...roomData
-      });
-
-      console.log(`✅ User ${username} (${socket.id}) joined room ${roomCode}`);
-    } catch (error) {
-      console.error(`❌ Error joining room: ${error.message}`);
-      if (rooms[roomCode]) {
-        rooms[roomCode] = rooms[roomCode].filter(p => p.id !== socket.id);
-      }
-      callback?.({ success: false, error: 'Failed to join room' });
+  socket.on('joinRoom', ({ roomCode, username }) => {
+    if (!rooms[roomCode]) rooms[roomCode] = [];
+    if (!roomHosts[roomCode]) roomHosts[roomCode] = socket.id;
+    if (rooms[roomCode].length >= 8) {
+      socket.emit('errorMessage', 'Room is full.');
+      return;
     }
+    const playerExists = rooms[roomCode].some(p => p.id === socket.id);
+    if (!playerExists) rooms[roomCode].push({ id: socket.id, username, ready: false, returned: false });
+    socket.join(roomCode);
+    io.to(roomCode).emit('roomData', {
+      players: rooms[roomCode],
+      hostId: roomHosts[roomCode],
+      category: roomCategories[roomCode] || 'Kuwait'
+    });
+    io.to(roomCode).emit('newHost', roomHosts[roomCode]);
   });
 
   socket.on('ready', ({ roomCode, playerId }) => {
@@ -280,5 +248,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
+  console.log(`🚀 Server is running on port ${PORT}`);More actions
 });
