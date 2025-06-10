@@ -8,10 +8,24 @@ const app = express();
 
 app.use('/images', express.static('public/images'));
 
-const allowedOrigins = ['https://chthab.com', 'http://localhost:3000'];
+const allowedOrigins = [
+  'https://chthab.com',
+  'http://localhost:3000',
+  'http://localhost:3001'
+];
+
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(new Error('CORS not allowed'), false);
+    }
+    return callback(null, true);
+  },
   methods: ['GET', 'POST'],
+  credentials: true
 }));
 
 const server = http.createServer(app);
@@ -20,9 +34,11 @@ const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
     methods: ['GET', 'POST'],
+    credentials: true
   },
   pingTimeout: 60000,
   pingInterval: 25000,
+  transports: ['websocket', 'polling']
 });
 
 const PORT = process.env.PORT || 3001;
@@ -128,24 +144,37 @@ io.on('connection', (socket) => {
   // Handle room joining
   socket.on('joinRoom', ({ roomCode, username }) => {
     try {
+      console.log(`Attempting to join room: ${roomCode} with username: ${username}`);
+      
       // Validate input
+      if (!roomCode || !username) {
+        console.log('Missing roomCode or username');
+        socket.emit('errorMessage', 'Room code and username are required');
+        return;
+      }
+
       if (!validateRoomCode(roomCode)) {
+        console.log(`Invalid room code format: ${roomCode}`);
         socket.emit('errorMessage', 'Invalid room code format');
         return;
       }
+      
       if (!validateUsername(username)) {
-        socket.emit('errorMessage', 'Invalid username');
+        console.log(`Invalid username format: ${username}`);
+        socket.emit('errorMessage', 'Username must be between 1 and 20 characters');
         return;
       }
 
       // Check if player was recently disconnected
       const disconnectedData = disconnectedPlayers.get(socket.id);
       if (disconnectedData && disconnectedData.roomCode === roomCode) {
+        console.log(`Reconnecting previously disconnected player: ${username}`);
         disconnectedPlayers.delete(socket.id);
       }
 
       // Initialize room if it doesn't exist
       if (!rooms[roomCode]) {
+        console.log(`Creating new room: ${roomCode}`);
         rooms[roomCode] = [];
         roomHosts[roomCode] = socket.id;
         roomCategories[roomCode] = 'Kuwait';
@@ -153,12 +182,14 @@ io.on('connection', (socket) => {
 
       // Check room capacity
       if (rooms[roomCode].length >= MAX_PLAYERS) {
+        console.log(`Room ${roomCode} is full`);
         socket.emit('errorMessage', 'Room is full');
         return;
       }
 
       // Leave current room if in one
       if (currentRoom) {
+        console.log(`Leaving current room ${currentRoom} to join ${roomCode}`);
         socket.leave(currentRoom);
         rooms[currentRoom] = rooms[currentRoom].filter(p => p.id !== socket.id);
         if (rooms[currentRoom].length === 0) {
@@ -182,6 +213,8 @@ io.on('connection', (socket) => {
         });
       }
 
+      console.log(`Successfully joined room ${roomCode}. Current players: ${rooms[roomCode].length}`);
+
       // Emit room data
       io.to(roomCode).emit('roomData', {
         players: rooms[roomCode],
@@ -189,10 +222,19 @@ io.on('connection', (socket) => {
         category: roomCategories[roomCode]
       });
 
-      console.log(`👤 User ${username} joined room ${roomCode}`);
+      console.log(`User ${username} joined room ${roomCode}`);
     } catch (error) {
       console.error('Error in joinRoom:', error);
-      socket.emit('errorMessage', 'Failed to join room');
+      let errorMessage = 'Failed to join room';
+      
+      // Provide more specific error messages based on the error type
+      if (error.name === 'ValidationError') {
+        errorMessage = error.message;
+      } else if (error.code === 'ECONNREFUSED') {
+        errorMessage = 'Connection to server failed';
+      }
+      
+      socket.emit('errorMessage', errorMessage);
     }
   });
 
