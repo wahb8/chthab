@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require('express');More actions
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
@@ -73,6 +73,9 @@ const locationCategories = {
     { name: "modric", image: "/images/soccer-players/modric.png" },
     { name: "ronaldo", image: "/images/soccer-players/ronaldo.png" },
     { name: "messi", image: "/images/soccer-players/messi.png" },
+    { name: "neymar", image: "/images/soccer-players/neymar.png" },
+    { name: "mbappe", image: "/images/soccer-players/mbappe.png" },
+    { name: "modric", image: "/images/soccer-players/modric.png" }
     { name: "salem", image: "/images/soccer-players/salem.png" }
 
   ]
