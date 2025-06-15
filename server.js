@@ -191,6 +191,12 @@ const cleanupAbandonedRooms = () => {
 
     // ── joinRoom ────────────────────────────────────────────
     socket.on('joinRoom', ({ roomCode, username }) => {
+      // Validate room code format
+      if (!roomCode || typeof roomCode !== 'string' || roomCode.length !== 6) {
+        socket.emit('errorMessage', 'Invalid room code format.');
+        return;
+      }
+
       if (!rooms[roomCode]) {
         rooms[roomCode] = [];      // create if first player
         roomHosts[roomCode] = socket.id;  // Only set host if creating new room
@@ -200,6 +206,7 @@ const cleanupAbandonedRooms = () => {
         socket.emit('errorMessage', 'Room is full.');
         return;
       }
+
       const exists = rooms[roomCode].some(p => p.id === socket.id);
       if (!exists) rooms[roomCode].push({ id: socket.id, username, ready:false, returned:false });
 
@@ -302,57 +309,86 @@ const cleanupAbandonedRooms = () => {
     // ── leaveRoom ───────────────────────────────────────────
     socket.on('leaveRoom', ({ roomCode }) => {
       const room = rooms[roomCode];
-      if (!room) return;
-      const idx = room.findIndex(p => p.id === socket.id);
-      if (idx !== -1) {
-        const wasHost = roomHosts[roomCode] === socket.id;
-        room.splice(idx, 1);
-
-        if (room.length === 0) {
-          delete rooms[roomCode];
-          delete usedLocations[roomCode];
-          delete roomHosts[roomCode];
-          delete roomCategories[roomCode];
-          delete roomTimestamps[roomCode];  // Clean up timestamp
-          return;
-        }
-        if (wasHost) {
-          roomHosts[roomCode] = room[0].id;
-          io.to(roomCode).emit('newHost', roomHosts[roomCode]);
-        }
-        updateRoomActivity(roomCode);  // Update activity timestamp
-        io.to(roomCode).emit('roomData', {
-          players: rooms[roomCode],
-          hostId : roomHosts[roomCode],
-          category: roomCategories[roomCode] || 'Kuwait'
-        });
+      if (!room) {
+        socket.emit('errorMessage', 'Room not found.');
+        return;
       }
+
+      const idx = room.findIndex(p => p.id === socket.id);
+      if (idx === -1) {
+        socket.emit('errorMessage', 'You are not in this room.');
+        return;
+      }
+
+      const wasHost = roomHosts[roomCode] === socket.id;
+      room.splice(idx, 1);
+
+      // Notify other players that someone left
+      io.to(roomCode).emit('playerLeft', {
+        playerId: socket.id,
+        remainingPlayers: room.length
+      });
+
+      if (room.length === 0) {
+        delete rooms[roomCode];
+        delete usedLocations[roomCode];
+        delete roomHosts[roomCode];
+        delete roomCategories[roomCode];
+        delete roomTimestamps[roomCode];
+        return;
+      }
+
+      if (wasHost) {
+        roomHosts[roomCode] = room[0].id;
+        io.to(roomCode).emit('newHost', roomHosts[roomCode]);
+      }
+
+      updateRoomActivity(roomCode);
+      io.to(roomCode).emit('roomData', {
+        players: rooms[roomCode],
+        hostId : roomHosts[roomCode],
+        category: roomCategories[roomCode] || 'Kuwait'
+      });
     });
 
     // ── disconnect ──────────────────────────────────────────
     socket.on('disconnect', () => {
       clearInterval(inactivityInterval);
       for (const code in rooms) {
+        const room = rooms[code];
         const wasHost = roomHosts[code] === socket.id;
-        rooms[code] = rooms[code].filter(p => p.id !== socket.id);
-        if (rooms[code].length === 0) {
-          delete rooms[code];
-          delete usedLocations[code];
-          delete roomHosts[code];
-          delete roomCategories[code];
-          delete roomTimestamps[code];  // Clean up timestamp
-          continue;
+        const playerIndex = room.findIndex(p => p.id === socket.id);
+        
+        if (playerIndex !== -1) {
+          // Notify other players that someone disconnected
+          io.to(code).emit('playerLeft', {
+            playerId: socket.id,
+            remainingPlayers: room.length - 1
+          });
+
+          rooms[code] = room.filter(p => p.id !== socket.id);
+          
+          if (rooms[code].length === 0) {
+            delete rooms[code];
+            delete usedLocations[code];
+            delete roomHosts[code];
+            delete roomCategories[code];
+            delete roomTimestamps[code];
+            continue;
+          }
+
+          if (wasHost) {
+            roomHosts[code] = rooms[code][0].id;
+            io.to(code).emit('newHost', roomHosts[code]);
+          }
+
+          updateRoomActivity(code);
+          io.to(code).emit('roomData', {
+            players: rooms[code],
+            hostId : roomHosts[code],
+            category: roomCategories[code] || 'Kuwait'
+          });
         }
-        if (wasHost) {
-          roomHosts[code] = rooms[code][0].id;
-          io.to(code).emit('newHost', roomHosts[code]);
-        }
-        updateRoomActivity(code);  // Update activity timestamp
-        io.to(code).emit('roomData', {
-          players: rooms[code],
-          hostId : roomHosts[code],
-          category: roomCategories[code] || 'Kuwait'
-        });
       }
     });
   });
