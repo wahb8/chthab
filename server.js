@@ -27,46 +27,6 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3001;
 
-// Input validation constants
-const USERNAME_MIN_LENGTH = 1;
-const USERNAME_MAX_LENGTH = 20;
-const ROOM_CODE_LENGTH = 6;
-const ALLOWED_USERNAME_CHARS = /^[a-zA-Z0-9\u0600-\u06FF\s_-]+$/; // Alphanumeric, Arabic, spaces, underscore, hyphen
-const ALLOWED_ROOM_CODE_CHARS = /^[A-Z0-9]+$/; // Uppercase letters and numbers only
-
-// Input validation functions
-const validateUsername = (username) => {
-  if (!username || typeof username !== 'string') {
-    return { valid: false, message: 'Username is required.' };
-  }
-  
-  if (username.length < USERNAME_MIN_LENGTH || username.length > USERNAME_MAX_LENGTH) {
-    return { valid: false, message: `Username must be between ${USERNAME_MIN_LENGTH} and ${USERNAME_MAX_LENGTH} characters.` };
-  }
-  
-  if (!ALLOWED_USERNAME_CHARS.test(username)) {
-    return { valid: false, message: 'Username contains invalid characters.' };
-  }
-  
-  return { valid: true };
-};
-
-const validateRoomCode = (roomCode) => {
-  if (!roomCode || typeof roomCode !== 'string') {
-    return { valid: false, message: 'Room code is required.' };
-  }
-  
-  if (roomCode.length !== ROOM_CODE_LENGTH) {
-    return { valid: false, message: `Room code must be ${ROOM_CODE_LENGTH} characters.` };
-  }
-  
-  if (!ALLOWED_ROOM_CODE_CHARS.test(roomCode)) {
-    return { valid: false, message: 'Room code contains invalid characters.' };
-  }
-  
-  return { valid: true };
-};
-
 // ── All location categories (unchanged) ─────────────────────
 const locationCategories = {
   Kuwait: [
@@ -231,16 +191,9 @@ const cleanupAbandonedRooms = () => {
 
     // ── joinRoom ────────────────────────────────────────────
     socket.on('joinRoom', ({ roomCode, username }) => {
-      // Validate inputs
-      const usernameValidation = validateUsername(username);
-      if (!usernameValidation.valid) {
-        socket.emit('errorMessage', usernameValidation.message);
-        return;
-      }
-
-      const roomCodeValidation = validateRoomCode(roomCode);
-      if (!roomCodeValidation.valid) {
-        socket.emit('errorMessage', roomCodeValidation.message);
+      // Validate room code format
+      if (!roomCode || typeof roomCode !== 'string' || roomCode.length !== 6) {
+        socket.emit('errorMessage', 'Invalid room code format.');
         return;
       }
 
@@ -251,12 +204,6 @@ const cleanupAbandonedRooms = () => {
 
       if (rooms[roomCode].length >= 8) {
         socket.emit('errorMessage', 'Room is full.');
-        return;
-      }
-
-      // Check for duplicate usernames in the room
-      if (rooms[roomCode].some(p => p.username.toLowerCase() === username.toLowerCase())) {
-        socket.emit('errorMessage', 'This username is already taken in this room.');
         return;
       }
 
@@ -361,12 +308,6 @@ const cleanupAbandonedRooms = () => {
 
     // ── leaveRoom ───────────────────────────────────────────
     socket.on('leaveRoom', ({ roomCode }) => {
-      const roomCodeValidation = validateRoomCode(roomCode);
-      if (!roomCodeValidation.valid) {
-        socket.emit('errorMessage', roomCodeValidation.message);
-        return;
-      }
-
       const room = rooms[roomCode];
       if (!room) {
         socket.emit('errorMessage', 'Room not found.');
