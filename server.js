@@ -234,13 +234,13 @@ const cleanupAbandonedRooms = () => {
       // Validate inputs
       const usernameValidation = validateUsername(username);
       if (!usernameValidation.valid) {
-        socket.emit('usernameError', usernameValidation.message);
+        socket.emit('errorMessage', usernameValidation.message);
         return;
       }
 
       const roomCodeValidation = validateRoomCode(roomCode);
       if (!roomCodeValidation.valid) {
-        socket.emit('roomCodeError', roomCodeValidation.message);
+        socket.emit('errorMessage', roomCodeValidation.message);
         return;
       }
 
@@ -250,13 +250,13 @@ const cleanupAbandonedRooms = () => {
       }
 
       if (rooms[roomCode].length >= 8) {
-        socket.emit('roomError', 'Room is full.');
+        socket.emit('errorMessage', 'Room is full.');
         return;
       }
 
       // Check for duplicate usernames in the room
       if (rooms[roomCode].some(p => p.username.toLowerCase() === username.toLowerCase())) {
-        socket.emit('usernameError', 'This username is already taken in this room.');
+        socket.emit('errorMessage', 'This username is already taken in this room.');
         return;
       }
 
