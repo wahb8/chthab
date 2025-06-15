@@ -78,7 +78,55 @@ const locationCategories = {
     { name: "mbappe",      image: "/images/soccer-players/mbappe.png" },
     { name: "modric",      image: "/images/soccer-players/modric.png" },
     { name: "salem",       image: "/images/soccer-players/salem.png" }
-  ]
+  ],
+  "Kuwaiti-Shows": [
+  { name: "اقبال يوم أقبلت", image: "/images/kuwaiti-shows/اقبال يوم أقبلتpng" },
+  { name: "الحيالة", image: "/images/kuwaiti-shows/الحيالة.png" },
+  { name: "العافور", image: "/images/kuwaiti-shows/العافور.png" },
+  { name: "امنا رويحة الجنة", image: "/images/kuwaiti-shows/امنا رويحة الجنة.png" },
+  { name: "خالتي قماشة", image: "/images/kuwaiti-shows/خالتي قماشة.png" },
+  { name: "درب الزلق", image: "/images/kuwaiti-shows/درب الزلق.png" },
+  { name: "دفعة القاهرة", image: "/images/kuwaiti-shows/دفعة القاهرة.png" },
+  { name: "زوارة خميس", image: "/images/kuwaiti-shows/زوارة خميس.png" },
+  { name: "ساق البامبو", image: "/images/kuwaiti-shows/ساق البامبو.png" },
+  { name: "ساهر الليل", image: "/images/kuwaiti-shows/ساهر الليل.png" },
+  { name: "فضه قلبها ابيض", image: "/images/kuwaiti-shows/فضه قلبها ابيض.png" },
+  { name: "مدرسة النخبة", image: "/images/kuwaiti-shows/مدرسة النخبة.png" }
+  ],
+  "Saudi-Celebrities": [
+  { name: "عبدالرحمن الشهري", image: "/images/Saudi-Celebrities/عبدالرحمن الشهري.png" },
+  { name: "أبو ربيعه", image: "/images/Saudi-Celebrities/أبو ربيعه.png" }, 
+  { name: "أحمد الشقيري", image: "/images/Saudi-Celebrities/أحمد الشقيري.png" },
+  { name: "عبدالعزيز الدوسري", image: "/images/Saudi-Celebrities/عبدالعزيز الدوسري.png" },
+  { name: "التمساح", image: "/images/Saudi-Celebrities/التمساح.png" },
+  { name: "بدر صالح", image: "/images/Saudi-Celebrities/بدر صالح.png" },
+  { name: "بندرتيا", image: "/images/Saudi-Celebrities/بندرتيا.png" }, 
+  { name: "دحومي999", image: "/images/Saudi-Celebrities/دحومي999.png" },
+  { name: "فهد التمساح", image: "/images/Saudi-Celebrities/فهد التمساح.png" },
+  { name: "فهد سال", image: "/images/Saudi-Celebrities/فهد سال.png" },
+  { name: "حسون البارقي", image: "/images/Saudi-Celebrities/حسون البارقي.png" }, 
+  { name: "خلف زون", image: "/images/Saudi-Celebrities/خلف زون.png" },
+  { name: "مجرم قيمز", image: "/images/Saudi-Celebrities/مجرم قيمز.png" }, 
+  { name: "مشيع", image: "/images/Saudi-Celebrities/مشيع.png" },
+  { name: "مستر شنب", image: "/images/Saudi-Celebrities/مستر شنب.png" },
+  { name: "ناصر القصبي", image: "/images/Saudi-Celebrities/ناصر القصبي.png" },
+  { name: "يزيد الراجحي", image: "/images/Saudi-Celebrities/يزيد الراجحي.png" }
+ ],
+ "Fatayer": [
+  { name: "بيتزا", image: "/images/Fatayer/بيتزا.png" },
+  { name: "جبن", image: "/images/Fatayer/جبن.png" },
+  { name: "حلوم", image: "/images/Fatayer/حلوم.png" },
+  { name: "زعتر", image: "/images/Fatayer/زعتر.png" },
+  { name: "فلافل", image: "/images/Fatayer/فلافل.png" },
+  { name: "قيمر وعسل", image: "/images/Fatayer/قيمر وعسل.png" },
+  { name: "لبنه", image: "/images/Fatayer/لبنه.png" },
+  { name: "لحم", image: "/images/Fatayer/لحم.png" },
+  { name: "نقانق", image: "/images/Fatayer/نقانق.png" },
+  { name: "نوتيلا", image: "/images/Fatayer/نوتيلا.png" }
+]
+
+
+
 };
 
 // ── In-memory state (same as before) ─────────────────────────
