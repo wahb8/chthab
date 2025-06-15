@@ -80,17 +80,17 @@ const locationCategories = {
     { name: "salem",       image: "/images/soccer-players/salem.png" }
   ],
   "Kuwaiti-Shows": [
-  { name: "اقبال يوم أقبلت", image: "/images/Kuwaiti-Shows/اقبال يوم أقبلتpng" },
+  { name: "اقبال يوم أقبلت", image: "/images/Kuwaiti-Shows/اقبال يوم أقبلت.png" },
   { name: "الحيالة", image: "/images/Kuwaiti-Shows/الحيالة.png" },
   { name: "العافور", image: "/images/Kuwaiti-Shows/العافور.png" },
   { name: "امنا رويحة الجنة", image: "/images/Kuwaiti-Shows/امنا رويحة الجنة.png" },
   { name: "خالتي قماشة", image: "/images/Kuwaiti-Shows/خالتي قماشة.png" },
   { name: "درب الزلق", image: "/images/Kuwaiti-Shows/درب الزلق.png" },
-  { name: "دفعة القاهرة", image: "/images/Kuwaiti-Shows/دفعة القاهرة.png" },
+  { name: "دفعة القاهرة", image: "/images/Kuwaiti-Shows/دفعة القاهره.png" },
   { name: "زوارة خميس", image: "/images/Kuwaiti-Shows/زوارة خميس.png" },
   { name: "ساق البامبو", image: "/images/Kuwaiti-Shows/ساق البامبو.png" },
   { name: "ساهر الليل", image: "/images/Kuwaiti-Shows/ساهر الليل.png" },
-  { name: "فضه قلبها ابيض", image: "/images/Kuwaiti-Shows/فضه قلبها ابيض.png" },
+  { name: "فضه قلبها ابيض", image: "/images/Kuwaiti-Shows/فضة قلبها ابيض.png" },
   { name: "مدرسة النخبة", image: "/images/Kuwaiti-Shows/مدرسة النخبة.png" }
   ],
   "Saudi-Celebrities": [
@@ -134,6 +134,32 @@ const rooms           = {};
 const usedLocations   = {};
 const roomHosts       = {};
 const roomCategories  = {};
+const roomTimestamps  = {};  // Track when rooms were last active
+
+// Room cleanup configuration
+const ROOM_CLEANUP_INTERVAL = 5 * 60 * 1000;  // Check every 5 minutes
+const ROOM_INACTIVITY_THRESHOLD = 30 * 60 * 1000;  // 30 minutes of inactivity
+
+// Function to update room activity timestamp
+const updateRoomActivity = (roomCode) => {
+  roomTimestamps[roomCode] = Date.now();
+};
+
+// Function to clean up abandoned rooms
+const cleanupAbandonedRooms = () => {
+  const now = Date.now();
+  for (const roomCode in rooms) {
+    const lastActivity = roomTimestamps[roomCode] || 0;
+    if (now - lastActivity > ROOM_INACTIVITY_THRESHOLD) {
+      console.log(`🧹 Cleaning up abandoned room: ${roomCode}`);
+      delete rooms[roomCode];
+      delete usedLocations[roomCode];
+      delete roomHosts[roomCode];
+      delete roomCategories[roomCode];
+      delete roomTimestamps[roomCode];
+    }
+  }
+};
 
 // ────────────────────────────────────────────────────────────
 //  Main bootstrap – waits for Redis before starting server
@@ -146,6 +172,9 @@ const roomCategories  = {};
   await subClient.connect();
   io.adapter(createAdapter(pubClient, subClient));
   console.log('🚦  Redis adapter attached');
+
+  // Start room cleanup interval
+  setInterval(cleanupAbandonedRooms, ROOM_CLEANUP_INTERVAL);
 
   // 2. Socket.IO event handlers (all original logic)
   io.on('connection', (socket) => {
@@ -173,6 +202,7 @@ const roomCategories  = {};
       if (!exists) rooms[roomCode].push({ id: socket.id, username, ready:false, returned:false });
 
       socket.join(roomCode);
+      updateRoomActivity(roomCode);  // Update activity timestamp
       io.to(roomCode).emit('roomData', {
         players: rooms[roomCode],
         hostId : roomHosts[roomCode],
@@ -185,6 +215,7 @@ const roomCategories  = {};
     socket.on('ready', ({ roomCode, playerId }) => {
       const player = rooms[roomCode]?.find(p => p.id === playerId);
       if (player) player.ready = true;
+      updateRoomActivity(roomCode);  // Update activity timestamp
       io.to(roomCode).emit('roomData', {
         players: rooms[roomCode],
         hostId : roomHosts[roomCode],
@@ -196,6 +227,7 @@ const roomCategories  = {};
     socket.on('updateCategory', ({ roomCode, category }) => {
       if (rooms[roomCode]) {
         roomCategories[roomCode] = category;
+        updateRoomActivity(roomCode);  // Update activity timestamp
         io.to(roomCode).emit('roomData', {
           players: rooms[roomCode],
           hostId : roomHosts[roomCode],
@@ -236,6 +268,7 @@ const roomCategories  = {};
       const randomLocation = unused[Math.floor(Math.random() * unused.length)];
       usedLocations[roomCode].push(randomLocation);
 
+      updateRoomActivity(roomCode);  // Update activity timestamp
       room.forEach((player, idx) => {
         const isSpy = idx === spyIndex;
         io.to(player.id).emit('gameStarted', {
@@ -256,6 +289,7 @@ const roomCategories  = {};
       if (!room) return;
       const player = room.find(p => p.id === socket.id);
       if (player) player.returned = true;
+      updateRoomActivity(roomCode);  // Update activity timestamp
       io.to(roomCode).emit('roomData', {
         players: rooms[roomCode],
         hostId : roomHosts[roomCode],
@@ -277,12 +311,14 @@ const roomCategories  = {};
           delete usedLocations[roomCode];
           delete roomHosts[roomCode];
           delete roomCategories[roomCode];
+          delete roomTimestamps[roomCode];  // Clean up timestamp
           return;
         }
         if (wasHost) {
           roomHosts[roomCode] = room[0].id;
           io.to(roomCode).emit('newHost', roomHosts[roomCode]);
         }
+        updateRoomActivity(roomCode);  // Update activity timestamp
         io.to(roomCode).emit('roomData', {
           players: rooms[roomCode],
           hostId : roomHosts[roomCode],
@@ -302,12 +338,14 @@ const roomCategories  = {};
           delete usedLocations[code];
           delete roomHosts[code];
           delete roomCategories[code];
+          delete roomTimestamps[code];  // Clean up timestamp
           continue;
         }
         if (wasHost) {
           roomHosts[code] = rooms[code][0].id;
           io.to(code).emit('newHost', roomHosts[code]);
         }
+        updateRoomActivity(code);  // Update activity timestamp
         io.to(code).emit('roomData', {
           players: rooms[code],
           hostId : roomHosts[code],
