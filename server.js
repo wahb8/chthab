@@ -191,8 +191,10 @@ const cleanupAbandonedRooms = () => {
 
     // ── joinRoom ────────────────────────────────────────────
     socket.on('joinRoom', ({ roomCode, username }) => {
-      if (!rooms[roomCode]) rooms[roomCode] = [];      // create if first player
-      if (!roomHosts[roomCode]) roomHosts[roomCode] = socket.id;
+      if (!rooms[roomCode]) {
+        rooms[roomCode] = [];      // create if first player
+        roomHosts[roomCode] = socket.id;  // Only set host if creating new room
+      }
 
       if (rooms[roomCode].length >= 8) {
         socket.emit('errorMessage', 'Room is full.');
@@ -202,7 +204,7 @@ const cleanupAbandonedRooms = () => {
       if (!exists) rooms[roomCode].push({ id: socket.id, username, ready:false, returned:false });
 
       socket.join(roomCode);
-      updateRoomActivity(roomCode);  // Update activity timestamp
+      updateRoomActivity(roomCode);
       io.to(roomCode).emit('roomData', {
         players: rooms[roomCode],
         hostId : roomHosts[roomCode],
