@@ -80,18 +80,18 @@ const locationCategories = {
     { name: "salem",       image: "/images/soccer-players/salem.png" }
   ],
   "Kuwaiti-Shows": [
-  { name: "اقبال يوم أقبلت", image: "/images/kuwaiti-shows/اقبال يوم أقبلتpng" },
-  { name: "الحيالة", image: "/images/kuwaiti-shows/الحيالة.png" },
-  { name: "العافور", image: "/images/kuwaiti-shows/العافور.png" },
-  { name: "امنا رويحة الجنة", image: "/images/kuwaiti-shows/امنا رويحة الجنة.png" },
-  { name: "خالتي قماشة", image: "/images/kuwaiti-shows/خالتي قماشة.png" },
-  { name: "درب الزلق", image: "/images/kuwaiti-shows/درب الزلق.png" },
-  { name: "دفعة القاهرة", image: "/images/kuwaiti-shows/دفعة القاهرة.png" },
-  { name: "زوارة خميس", image: "/images/kuwaiti-shows/زوارة خميس.png" },
-  { name: "ساق البامبو", image: "/images/kuwaiti-shows/ساق البامبو.png" },
-  { name: "ساهر الليل", image: "/images/kuwaiti-shows/ساهر الليل.png" },
-  { name: "فضه قلبها ابيض", image: "/images/kuwaiti-shows/فضه قلبها ابيض.png" },
-  { name: "مدرسة النخبة", image: "/images/kuwaiti-shows/مدرسة النخبة.png" }
+  { name: "اقبال يوم أقبلت", image: "/images/Kuwaiti-Shows/اقبال يوم أقبلتpng" },
+  { name: "الحيالة", image: "/images/Kuwaiti-Shows/الحيالة.png" },
+  { name: "العافور", image: "/images/Kuwaiti-Shows/العافور.png" },
+  { name: "امنا رويحة الجنة", image: "/images/Kuwaiti-Shows/امنا رويحة الجنة.png" },
+  { name: "خالتي قماشة", image: "/images/Kuwaiti-Shows/خالتي قماشة.png" },
+  { name: "درب الزلق", image: "/images/Kuwaiti-Shows/درب الزلق.png" },
+  { name: "دفعة القاهرة", image: "/images/Kuwaiti-Shows/دفعة القاهرة.png" },
+  { name: "زوارة خميس", image: "/images/Kuwaiti-Shows/زوارة خميس.png" },
+  { name: "ساق البامبو", image: "/images/Kuwaiti-Shows/ساق البامبو.png" },
+  { name: "ساهر الليل", image: "/images/Kuwaiti-Shows/ساهر الليل.png" },
+  { name: "فضه قلبها ابيض", image: "/images/Kuwaiti-Shows/فضه قلبها ابيض.png" },
+  { name: "مدرسة النخبة", image: "/images/Kuwaiti-Shows/مدرسة النخبة.png" }
   ],
   "Saudi-Celebrities": [
   { name: "عبدالرحمن الشهري", image: "/images/Saudi-Celebrities/عبدالرحمن الشهري.png" },
